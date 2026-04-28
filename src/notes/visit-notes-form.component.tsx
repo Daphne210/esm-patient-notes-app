@@ -227,34 +227,42 @@ const VisitNotesForm: React.FC<DefaultWorkspaceProps> = ({
             {t("addVisitNote", "Add a visit note")}
           </h2>
         ) : null}
+
         <Row className={styles.row}>
           <Column sm={1}>
-            <span className={styles.columnLabel}>{t("date", "Date")}</span>
+            <span className={styles.columnLabel}>{t("note", "Note")}</span>
           </Column>
           <Column sm={3}>
             <Controller
-              name="noteDate"
+              name="clinicalNote"
               control={control}
-              render={({ field: { onChange, value } }) => (
+              render={({ field: { onChange, onBlur, value } }) => (
                 <ResponsiveWrapper isTablet={isTablet}>
-                  <DatePicker
-                    dateFormat="d/m/Y"
-                    datePickerType="single"
-                    maxDate={new Date().toISOString()}
+                  <TextArea
+                    id="additionalNote"
+                    rows={rows}
+                    labelText={t("clinicalNoteLabel", "Write your notes")}
+                    placeholder={t(
+                      "clinicalNotePlaceholder",
+                      "Write any notes here"
+                    )}
                     value={value}
-                    onChange={([date]) => onChange(date)}
-                  >
-                    <DatePickerInput
-                      id="visitDateTimePicker"
-                      labelText={t("visitDate", "Visit date")}
-                      placeholder="dd/mm/yyyy"
-                    />
-                  </DatePicker>
+                    onBlur={onBlur}
+                    onChange={(event) => {
+                      onChange(event);
+                      const textareaLineHeight = 24; // This is the default line height for Carbon's TextArea component
+                      const newRows = Math.ceil(
+                        event.target.scrollHeight / textareaLineHeight
+                      );
+                      setRows(newRows);
+                    }}
+                  />
                 </ResponsiveWrapper>
               )}
             />
           </Column>
         </Row>
+
         <Row className={styles.row}>
           <Column sm={1}>
             <span className={styles.columnLabel}>
@@ -335,38 +343,240 @@ const VisitNotesForm: React.FC<DefaultWorkspaceProps> = ({
         )}
         <Row className={styles.row}>
           <Column sm={1}>
-            <span className={styles.columnLabel}>{t("note", "Note")}</span>
+            <span className={styles.columnLabel}>
+              {t("primaryDiagnosis", "Primary diagnosis")}
+            </span>
           </Column>
           <Column sm={3}>
-            <Controller
-              name="clinicalNote"
-              control={control}
-              render={({ field: { onChange, onBlur, value } }) => (
-                <ResponsiveWrapper isTablet={isTablet}>
-                  <TextArea
-                    id="additionalNote"
-                    rows={rows}
-                    labelText={t("clinicalNoteLabel", "Write your notes")}
-                    placeholder={t(
-                      "clinicalNotePlaceholder",
-                      "Write any notes here"
-                    )}
-                    value={value}
-                    onBlur={onBlur}
-                    onChange={(event) => {
-                      onChange(event);
-                      const textareaLineHeight = 24; // This is the default line height for Carbon's TextArea component
-                      const newRows = Math.ceil(
-                        event.target.scrollHeight / textareaLineHeight
-                      );
-                      setRows(newRows);
-                    }}
-                  />
-                </ResponsiveWrapper>
+            <div
+              className={styles.diagnosesText}
+              style={{ marginBottom: "1.188rem" }}
+            >
+              {selectedPrimaryDiagnoses && selectedPrimaryDiagnoses.length ? (
+                <>
+                  {selectedPrimaryDiagnoses.map((diagnosis, index) => (
+                    <Tag
+                      filter
+                      key={index}
+                      onClose={() =>
+                        handleRemoveDiagnosis(diagnosis, "primaryInputSearch")
+                      }
+                      style={{ marginRight: "0.5rem" }}
+                      type={"red"}
+                    >
+                      {diagnosis.display}
+                    </Tag>
+                  ))}
+                </>
+              ) : (
+                <></>
               )}
-            />
+              {selectedSecondaryDiagnoses &&
+              selectedSecondaryDiagnoses.length ? (
+                <>
+                  {selectedSecondaryDiagnoses.map((diagnosis, index) => (
+                    <Tag
+                      filter
+                      key={index}
+                      onClose={() =>
+                        handleRemoveDiagnosis(diagnosis, "secondaryInputSearch")
+                      }
+                      style={{ marginRight: "0.5rem" }}
+                      type={"blue"}
+                    >
+                      {diagnosis.display}
+                    </Tag>
+                  ))}
+                </>
+              ) : (
+                <></>
+              )}
+              {selectedPrimaryDiagnoses &&
+                !selectedPrimaryDiagnoses.length &&
+                selectedSecondaryDiagnoses &&
+                !selectedSecondaryDiagnoses.length && (
+                  <span>
+                    {t(
+                      "emptyDiagnosisText",
+                      "No diagnosis selected — Enter a diagnosis below"
+                    )}
+                  </span>
+                )}
+            </div>
+            <FormGroup
+              legendText={t(
+                "searchForPrimaryDiagnosis",
+                "Search for a primary diagnosis"
+              )}
+            >
+              <DiagnosisSearch
+                name="primaryDiagnosisSearch"
+                control={control}
+                labelText={t(
+                  "enterPrimaryDiagnoses",
+                  "Enter Primary diagnoses"
+                )}
+                placeholder={t(
+                  "primaryDiagnosisInputPlaceholder",
+                  "Choose a primary diagnosis"
+                )}
+                handleSearch={handleSearch}
+                error={formState?.errors?.primaryDiagnosisSearch}
+              />
+              <div>
+                {(() => {
+                  if (!getValues("primaryDiagnosisSearch")) return null;
+                  if (loadingPrimary)
+                    return (
+                      <>
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                      </>
+                    );
+                  if (
+                    !loadingPrimary &&
+                    searchPrimaryResults &&
+                    searchPrimaryResults.length > 0
+                  ) {
+                    return (
+                      <ul className={styles.diagnosisList}>
+                        {searchPrimaryResults.map((diagnosis, index) => (
+                          <li
+                            role="menuitem"
+                            className={styles.diagnosis}
+                            key={index}
+                            onClick={() =>
+                              handleAddDiagnosis(
+                                diagnosis,
+                                "primaryDiagnosisSearch"
+                              )
+                            }
+                          >
+                            {diagnosis.display}
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  }
+                  return (
+                    <>
+                      {isTablet ? (
+                        <Layer>
+                          <Tile className={styles.emptyResults}>
+                            <span>
+                              {t(
+                                "noMatchingDiagnoses",
+                                "No diagnoses found matching"
+                              )}{" "}
+                              <strong>
+                                "{watch("primaryDiagnosisSearch")}"
+                              </strong>
+                            </span>
+                          </Tile>
+                        </Layer>
+                      ) : (
+                        <Tile className={styles.emptyResults}>
+                          <span>
+                            {t(
+                              "noMatchingDiagnoses",
+                              "No diagnoses found matching"
+                            )}{" "}
+                            <strong>"{watch("primaryDiagnosisSearch")}"</strong>
+                          </span>
+                        </Tile>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </FormGroup>
           </Column>
         </Row>
+        <Row className={styles.row}>
+          <Column sm={1}>
+            <span className={styles.columnLabel}>
+              {t("secondaryDiagnosis", "Secondary diagnosis")}
+            </span>
+          </Column>
+          <Column sm={3}>
+            <FormGroup
+              legendText={t(
+                "searchForSecondaryDiagnosis",
+                "Search for a secondary diagnosis"
+              )}
+            >
+              <DiagnosisSearch
+                name="secondaryDiagnosisSearch"
+                control={control}
+                labelText={t(
+                  "enterSecondaryDiagnoses",
+                  "Enter Secondary diagnoses"
+                )}
+                placeholder={t(
+                  "secondaryDiagnosisInputPlaceholder",
+                  "Choose a secondary diagnosis"
+                )}
+                handleSearch={handleSearch}
+              />
+              <div>
+                {(() => {
+                  if (!getValues("secondaryDiagnosisSearch")) return null;
+                  if (loadingSecondary)
+                    return (
+                      <>
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                        <SkeletonText className={styles.skeleton} />
+                      </>
+                    );
+                  if (
+                    !loadingSecondary &&
+                    searchSecondaryResults &&
+                    searchSecondaryResults.length > 0
+                  )
+                    return (
+                      <ul className={styles.diagnosisList}>
+                        {searchSecondaryResults.map((diagnosis, index) => (
+                          <li
+                            role="menuitem"
+                            className={styles.diagnosis}
+                            key={index}
+                            onClick={() =>
+                              handleAddDiagnosis(
+                                diagnosis,
+                                "secondaryDiagnosisSearch"
+                              )
+                            }
+                          >
+                            {diagnosis.display}
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  return (
+                    <ResponsiveWrapper isTablet={isTablet}>
+                      <Tile className={styles.emptyResults}>
+                        <span>
+                          {t(
+                            "noMatchingDiagnoses",
+                            "No diagnoses found matching"
+                          )}{" "}
+                          <strong>"{watch("secondaryDiagnosisSearch")}"</strong>
+                        </span>
+                      </Tile>
+                    </ResponsiveWrapper>
+                  );
+                })()}
+              </div>
+            </FormGroup>
+          </Column>
+        </Row>
+
         <Row className={styles.row}>
           <Column sm={1}>
             <span className={styles.columnLabel}>{t("image", "Image")}</span>
@@ -412,6 +622,7 @@ const VisitNotesForm: React.FC<DefaultWorkspaceProps> = ({
           </Column>
         </Row>
       </Stack>
+
       <ButtonSet className={isTablet ? styles.tablet : styles.desktop}>
         <Button
           className={styles.button}
